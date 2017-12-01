@@ -1,0 +1,111 @@
+---
+title: "Assignment 2"
+author: "Nabil Jabareen"
+date: "26 November 2017"
+output: html_document
+---
+
+```{r, include = F}
+rm(list=ls())
+
+library(data.table)
+library(magrittr)
+library(tidyr)
+library(ggplot2)
+
+
+setwd("C:/Users/Anja/Desktop")
+
+mapfile <- file.path("read.mappinginfo")
+
+mapinfHeader <- c("readid", "chr", "gene", "transcript", "t_fw_regvec", "t_rw_regvec", "fw_regvec", "rw_regvec","fw_mut","rw_mut","rubbish")
+
+mapinf <- fread(mapfile, sep="\t", header = F, col.names = mapinfHeader) 
+mapinf$rubbish <- NULL
+
+
+mapinf <- separate(mapinf, col = "t_fw_regvec", into = c("t_fw_regvec_start", "t_fw_regvec_end"), sep='-')
+
+
+mapinf <- separate(mapinf, col = "t_rw_regvec", into = c("t_rw_regvec_start", "t_rw_regvec_end"), sep='-')
+
+frlength <- as.integer(mapinf$t_rw_regvec_end)-as.integer(mapinf$t_fw_regvec_start)
+
+mapinf <- cbind(mapinf, frlength)
+
+```
+
+
+```{r, echo=F}
+library(ggplot2)
+ggplot(mapinf, aes(x = frlength)) + geom_histogram(binwidth = 7, colour="black", fill="grey") + geom_density(aes(y=7*..count..), colour="red", adjust=3)
+
+ggplot(mapinf, aes(x = frlength)) + geom_density(aes(y=..count..)) + geom_density(aes(y=1.1*..count..), colour="red", adjust=3)
+
+
+
+
+```
+
+
+```{r, echo = F}
+library(dplyr)
+
+readid_accurence <- length(mapinf$readid) *2
+fw_reads <- readid_accurence/2
+rw_reads <- readid_accurence/2
+
+
+amount_of_fw_split <- mapinf[, .N , by = nchar(fw_regvec)>25]
+fw_non_split <- amount_of_fw_split$N[2]
+fw_split <- amount_of_fw_split$N[1]
+
+amount_of_rw_split <- mapinf[, .N , by = nchar(rw_regvec)>25]
+rw_split <- amount_of_rw_split$N[2]
+rw_non_split <- amount_of_rw_split$N[1]
+
+amount_of_Allsplit <- rw_split + fw_split
+amount_of_Nonsplit <- rw_non_split + fw_non_split
+
+
+variables <- c("all_reads","number_of_non_splits", "amount_of_split")
+values <- c(readid_accurence,amount_of_Nonsplit, amount_of_Allsplit)
+
+split_dt <- data.table(variables, values)
+
+ggplot(split_dt,aes(x=variables,y=values))+
+  geom_bar(stat="identity",position="dodge")+
+  xlab("Reads")+ylab("Count")
+
+
+```
+
+
+```{r, echo = F}
+
+split_reads <- mapinf %>% select(fw_regvec, rw_regvec) %>% 
+  filter(nchar(fw_regvec)>25|nchar(rw_regvec)>25)
+numof_split_reads = length(split_reads$fw_regvec)
+
+split_with_mm <- mapinf %>% select(fw_regvec, rw_regvec, fw_mut, rw_mut) %>% 
+  filter(nchar(fw_regvec)>25|nchar(rw_regvec)>25) %>% filter(nchar(fw_mut)<1 & nchar(rw_mut)<1)
+numof_split_with_mm <- length(split_with_mm$fw_regvec)
+
+
+nonsplit_without_mm <- mapinf %>% select(fw_regvec, rw_regvec, fw_mut, rw_mut) %>% 
+  filter(nchar(fw_regvec)<25 & nchar(rw_regvec)<25) %>% filter(nchar(fw_mut)<1 & nchar(rw_mut)<1)
+numof_nonsplit_without_mm <- length(nonsplit_without_mm$fw_regvec)
+
+
+variables1 <- c("Split_reads", "Split_reads_without_mm", "non_Split_reads_without_mm")
+values1 <- c(numof_split_reads, numof_split_with_mm, numof_nonsplit_without_mm)
+
+split_dt <- data.table(variables1, values1)
+
+ggplot(split_dt,aes(x=variables1,y=values1))+
+  geom_bar(stat="identity",position="dodge")+
+  xlab("Reads")+ylab("Count")
+
+
+
+```
